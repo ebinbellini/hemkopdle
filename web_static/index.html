@@ -5,11 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="/style.css">
     <title>Hemköpdle</title>
+    <script src="/script.js" defer></script>
 </head>
 <body>
     <navbar>
-        <a href="/">
-            <img id="logo" src="Hemköpdle logo.svg" alt="Hemköpdle logo" width="173" height="26">
+        <div class="icon-button" id="hamburger-button" onclick="open_mode_picker()">
+            <img src="/icons/hamburger.svg" alt="Hamburger" width="30" height="30">
+        </div>
+        <a href="/" id="logo">
+            <img src="Hemköpdle logo.svg" alt="Hemköpdle logo" width="173" height="24">
         </a>
         <div id="external-links">
             <a href="https://www.youtube.com/watch?v=GIhcL8K4shg" target="_blank" class="icon-button">
@@ -19,9 +23,11 @@
                 <img src="/icons/web.svg" alt="Ebin Bellini" width="30" height="30">
             </a>
         </div>
-        <div class="divider">
-        </div>
         <div id="mode-picker">
+            <div class="mode-picker-title">Välj läge</div>
+            <div id="close-button" class="icon-button" onclick="close_mode_picker()">
+                <img src="/icons/close.svg" alt="Stäng" width="30" height="30">
+            </div>
             <a href="/dagens">
                 <div class="cool-button">
                     <img src="/icons/calendar.svg" alt="Dagens vara" width="30" height="30">

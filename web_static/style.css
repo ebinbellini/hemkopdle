@@ -10,20 +10,27 @@ navbar {
     top: 0;
     left: 0;
     width: 100%;
+    height: 60px;
+    border-bottom: 1px solid #ecbfbb;
+}
+
+#hamburger-button {
+    float: left;
+    margin: 10px;
+    line-height: 0;
+    display: none;
+    cursor: pointer;
 }
 
 #logo {
-    margin: 16px;
+    margin: 20px;
+    display: inline-block;
+    line-height: 0;
 }
 
 #external-links {
     float: right;
-    margin: 8px 8px 0 0;
-}
-
-.divider {
-    height: 1px;
-    background-color: #ecbfbb;
+    margin: 10px 10px 0 0;
 }
 
 .icon-button,
@@ -32,14 +39,14 @@ navbar {
     margin-right: 8px;
     border-radius: 16px;
     background: #ffffff;
-    padding: 12px;
+    padding: 10px;
     line-height: 0;
 }
 
 .icon-button > img,
 .cool-button > img {
-    height: 24px;
-    width: 24px;
+    height: 20px;
+    width: 20px;
 }
 
 .icon-button.primary {
@@ -64,9 +71,83 @@ navbar {
     display: flex;
     justify-content: center;
     gap: 4px;
-    margin: 16px 0;
+    margin: auto;
+    position: absolute;
+    top: 8px;
+    left: 0;
+    right: 0;
+    width: fit-content;
+}
+
+#mode-picker #close-button {
+    display: none;
+}
+
+#mode-picker .mode-picker-title {
+    display: none;
 }
 
 #mode-picker a {
     text-decoration: none;
+}
+
+@media (max-width: 1100px) {
+    #hamburger-button {
+        display: block;
+    }
+
+    #logo {
+        margin-left: 0;
+    }
+
+    #mode-picker {
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        right: unset;
+        left: -100vw;
+        width: 100vw;
+        display: none;
+        background: #fff;
+        transition: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    #mode-picker.open {
+        left: 0;
+    }
+
+    #mode-picker a {
+        display: block;
+        color: #000;
+    }
+
+    #mode-picker #close-button {
+        position: absolute;
+        top: 0;
+        right: 0;
+        padding: 24px 16px;
+        cursor: pointer;
+    }
+
+    #mode-picker a .cool-button {
+        width: 100%;
+        justify-content: flex-start;
+        color: #000;
+        padding: 16px;
+        border-bottom: 1px solid #ecbfbb;
+        border-radius: 0;
+    }
+
+    #mode-picker .mode-picker-title {
+        display: block;
+        font-family: "NomNom", sans-serif;
+        font-size: 32px;
+        font-weight: 500;
+        color: #ee1c2e;
+        margin: 16px;
+    }
+
+    #mode-picker #close-button {
+        display: block;
+    }
 }
