@@ -21,10 +21,13 @@ func main() {
 	go server.Run()
 
 	fmt.Println("Running scraper")
-	go scraper.Scrape()
-	if err != nil {
-		log.Fatal(err)
-	}
+	go func() {
+		scraper.LoadOrScrape()
+		// Pick today's product as soon as the first products are available.
+		if err := server.EnsureDailyProduct(); err != nil {
+			fmt.Println("Could not pick daily product:", err)
+		}
+	}()
 
 	fmt.Println("Activate CRON schedule for scraper")
 	sched := os.Getenv("SCRAPE_CRON_SCHED")
@@ -39,6 +42,18 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	fmt.Println("Activate CRON schedule for daily product")
+	_, err = c.AddFunc("0 0 * * *", func() {
+		fmt.Println("Picking a new daily product")
+		if err := server.PickDailyProduct(); err != nil {
+			fmt.Println("Could not pick daily product:", err)
+		}
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	c.Start()
 
 	select {}

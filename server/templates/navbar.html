@@ -1,0 +1,32 @@
+{{define "navbar"}}
+<navbar>
+    <div class="icon-button" id="hamburger-button" onclick="open_mode_picker()">
+        <img src="/icons/hamburger.svg" alt="Hamburger" width="30" height="30">
+    </div>
+    <a href="/" id="logo">
+        <img src="/Hemköpdle logo.svg" alt="Hemköpdle logo" width="173" height="24">
+    </a>
+    <div id="external-links">
+        <a href="https://www.youtube.com/watch?v=GIhcL8K4shg" target="_blank" class="icon-button">
+            <img src="/icons/support.svg" alt="Support" width="30" height="30">
+        </a>
+        <a href="https://ebinbellini.com/" target="_blank" class="icon-button primary">
+            <img src="/icons/web.svg" alt="Ebin Bellini" width="30" height="30">
+        </a>
+    </div>
+    <div id="mode-picker">
+        <div class="mode-picker-title">Välj läge</div>
+        <div id="close-button" class="icon-button" onclick="close_mode_picker()">
+            <img src="/icons/close.svg" alt="Stäng" width="30" height="30">
+        </div>
+        {{- range .Modes}}
+        <a href="{{.Href}}"{{if eq .Href $.ActiveLink}} aria-current="page"{{end}}>
+            <div class="cool-button{{if eq .Href $.ActiveLink}} active{{end}}">
+                <img src="{{.Icon}}" alt="{{.Label}}" width="30" height="30">
+                <span>{{.Label}}</span>
+            </div>
+        </a>
+        {{- end}}
+    </div>
+</navbar>
+{{end}}

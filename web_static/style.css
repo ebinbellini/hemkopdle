@@ -11,7 +11,7 @@ navbar {
     left: 0;
     width: 100%;
     height: 60px;
-    border-bottom: 1px solid #ecbfbb;
+    border-bottom: 1px solid rgba(46, 45, 44, 0.07);
 }
 
 #hamburger-button {
@@ -50,7 +50,7 @@ navbar {
 }
 
 .icon-button.primary {
-    background: #ee1c2e;
+    background: var(--hk-red);
 }
 
 .cool-button {
@@ -61,7 +61,7 @@ navbar {
     padding: 12px 24px;
     gap: 8px;
     border-radius: 24px;
-    color: #ee1c2e;
+    color: var(--hk-red);
     font-family: "Outfit", sans-serif;
     font-size: 16px;
     font-weight: 500;
@@ -134,20 +134,470 @@ navbar {
         justify-content: flex-start;
         color: #000;
         padding: 16px;
-        border-bottom: 1px solid #ecbfbb;
+        border-bottom: 1px solid var(--hk-line);
         border-radius: 0;
     }
 
     #mode-picker .mode-picker-title {
         display: block;
-        font-family: "NomNom", sans-serif;
-        font-size: 32px;
-        font-weight: 500;
-        color: #ee1c2e;
+        font-family: "Outfit", sans-serif;
+        font-size: 30px;
+        font-weight: 700;
+        color: var(--hk-text);
         margin: 16px;
     }
 
     #mode-picker #close-button {
         display: block;
     }
+}
+
+/* Active mode button */
+
+.cool-button.active {
+    background: var(--hk-red);
+    color: #ffffff;
+}
+
+.cool-button.active > img {
+    filter: brightness(0) invert(1);
+}
+
+@media (max-width: 1100px) {
+    #mode-picker a .cool-button.active {
+        background: var(--hk-red);
+        color: #ffffff;
+    }
+
+    #mode-picker a .cool-button.active > img {
+        filter: brightness(0) invert(1);
+    }
+}
+
+/* Dagens vara */
+
+:root {
+    /* Palette lifted from hemkop.se */
+    --hk-red: #ea182a;
+    --hk-red-dark: #cf1b2b;
+    --hk-blue: #005fcc;
+    --hk-text: #2e2d2c;
+    --hk-muted: #6e6a66;
+    --hk-bg: #f8f7f6;
+    --hk-line: #e6e3e0;
+}
+
+[hidden] {
+    display: none !important;
+}
+
+body {
+    font-family: "Outfit", "objektiv", "Segoe UI", system-ui, sans-serif;
+    background: var(--hk-bg);
+    color: var(--hk-text);
+    min-height: 100vh;
+}
+
+.daily-game {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: clamp(6px, 1.1vh, 14px);
+    max-width: 620px;
+    min-height: 100vh;
+    min-height: 100dvh;
+    margin: 0 auto;
+    padding: 92px 16px 24px;
+}
+
+.game-header h1 {
+    font-size: clamp(21px, 3.1vh, 30px);
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    color: var(--hk-text);
+    margin-bottom: 2px;
+}
+
+.game-header p {
+    font-size: clamp(12px, 1.7vh, 14px);
+    line-height: 1.35;
+    color: var(--hk-muted);
+}
+
+.game-status {
+    font-size: 14px;
+    color: var(--hk-muted);
+}
+
+.product-card {
+    display: flex;
+    align-items: center;
+    gap: clamp(10px, 2vh, 22px);
+    padding: clamp(8px, 1.4vh, 16px);
+    background: #ffffff;
+    border: 1px solid var(--hk-line);
+    border-radius: 24px;
+}
+
+.product-image {
+    flex: none;
+    width: clamp(84px, 15vh, 150px);
+    height: clamp(84px, 15vh, 150px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f4f2f0;
+    border-radius: 16px;
+    overflow: hidden;
+}
+
+.product-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.product-details {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    text-align: left;
+}
+
+.product-brand {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--hk-muted);
+}
+
+.product-name {
+    font-size: clamp(16px, 2.3vh, 22px);
+    font-weight: 600;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+}
+
+.product-amount {
+    font-size: clamp(12px, 1.7vh, 15px);
+    color: var(--hk-muted);
+}
+
+.guess-form {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.guess-label {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.guess-row {
+    display: flex;
+    gap: 8px;
+}
+
+.guess-field {
+    position: relative;
+    flex: 1;
+}
+
+.guess-field input {
+    width: 100%;
+    padding: clamp(8px, 1.3vh, 13px) 48px clamp(8px, 1.3vh, 13px) 14px;
+    font-family: inherit;
+    font-size: clamp(16px, 2.2vh, 19px);
+    color: inherit;
+    background: #ffffff;
+    border: 1.5px solid var(--hk-line);
+    border-radius: 16px;
+    outline: none;
+    transition: border-color 120ms ease;
+}
+
+.guess-field input:focus {
+    border-color: var(--hk-red);
+}
+
+.guess-field input:disabled {
+    background: #f2f0ee;
+    color: var(--hk-muted);
+}
+
+.guess-unit {
+    position: absolute;
+    top: 50%;
+    right: 14px;
+    transform: translateY(-50%);
+    font-size: 14px;
+    color: var(--hk-muted);
+}
+
+.guess-submit {
+    padding: 0 24px;
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 700;
+    color: #ffffff;
+    background: var(--hk-red);
+    border: none;
+    border-radius: 16px;
+    cursor: pointer;
+    transition: background-color 120ms ease;
+}
+
+.guess-submit:hover:not(:disabled) {
+    background: var(--hk-red-dark);
+}
+
+.guess-submit:disabled {
+    background: #f0c3c8;
+    cursor: default;
+}
+
+.guess-error {
+    font-size: 13px;
+    color: var(--hk-red);
+}
+
+.attempts {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+}
+
+.attempt-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #d9d5d1;
+}
+
+.attempt-dot.used {
+    background: var(--hk-red);
+}
+
+.feedback {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: clamp(7px, 1.1vh, 12px) 14px;
+    background: #ffffff;
+    border: 1px solid var(--hk-line);
+    border-radius: 14px;
+}
+
+.feedback strong {
+    flex: none;
+    font-size: clamp(14px, 2vh, 17px);
+    white-space: nowrap;
+}
+
+.feedback .feedback-text {
+    flex: 1;
+    min-width: 0;
+    font-size: clamp(12px, 1.6vh, 14px);
+    color: var(--hk-muted);
+}
+
+.feedback.warmth-warm {
+    border-color: #f3c9cd;
+}
+
+.feedback.warmth-warm strong {
+    color: var(--hk-red);
+}
+
+.feedback.warmth-correct {
+    background: var(--hk-text);
+    border-color: var(--hk-text);
+    color: #ffffff;
+}
+
+.feedback.warmth-correct .feedback-text {
+    color: rgba(255, 255, 255, 0.75);
+}
+
+/* Direction arrows: red for a warm guess, blue for a cold one */
+
+.guess-arrow {
+    flex: none;
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.guess-arrow.warm {
+    color: var(--hk-red);
+}
+
+.guess-arrow.cold {
+    color: var(--hk-blue);
+}
+
+.feedback .guess-arrow {
+    font-size: 18px;
+}
+
+.guess-history {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    list-style: none;
+}
+
+.guess-history:empty {
+    display: none;
+}
+
+.guess-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    font-size: 13px;
+    background: #ffffff;
+    border: 1px solid var(--hk-line);
+    border-radius: 12px;
+}
+
+.guess-item.warmth-correct {
+    border-color: var(--hk-red);
+}
+
+.guess-number {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 17px;
+    height: 17px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--hk-muted);
+    border-radius: 50%;
+    background: #f1efec;
+}
+
+.guess-item.warmth-correct .guess-number {
+    background: var(--hk-red);
+    color: #ffffff;
+}
+
+.guess-value {
+    flex: none;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.guess-hint {
+    overflow: hidden;
+    font-size: 12px;
+    color: var(--hk-muted);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.answer {
+    padding: clamp(8px, 1.4vh, 16px);
+    text-align: center;
+    background: #ffffff;
+    border: 1px solid var(--hk-line);
+    border-radius: 20px;
+}
+
+.answer.answer-win {
+    border-color: var(--hk-red);
+}
+
+.answer h3 {
+    font-size: clamp(14px, 2vh, 18px);
+    margin-bottom: 2px;
+}
+
+.answer.answer-win h3 {
+    color: var(--hk-red);
+}
+
+.answer-price {
+    font-size: clamp(17px, 2.6vh, 22px);
+    font-weight: 700;
+}
+
+.answer-note {
+    margin-top: 2px;
+    font-size: clamp(11px, 1.5vh, 13px);
+    color: var(--hk-muted);
+}
+
+@media (max-width: 480px) {
+    .daily-game {
+        padding-top: 80px;
+    }
+
+    .product-image {
+        width: 84px;
+        height: 84px;
+    }
+
+    .guess-submit {
+        padding: 0 18px;
+    }
+}
+
+@media (max-width: 380px) {
+    .guess-history {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-height: 620px) {
+    .game-header p {
+        display: none;
+    }
+
+    .product-image {
+        width: 76px;
+        height: 76px;
+    }
+}
+
+/* Spellägen som inte är spelbara än */
+
+.placeholder-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: clamp(16px, 2.6vh, 28px);
+    background: #ffffff;
+    border: 1px dashed var(--hk-line);
+    border-radius: 24px;
+}
+
+.placeholder-badge {
+    align-self: flex-start;
+    padding: 4px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--hk-red);
+    background: #fde8ea;
+    border-radius: 999px;
+}
+
+.placeholder-card h2 {
+    font-size: clamp(17px, 2.4vh, 21px);
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.placeholder-card p {
+    font-size: clamp(13px, 1.8vh, 15px);
+    line-height: 1.45;
+    color: var(--hk-muted);
 }
