@@ -72,18 +72,20 @@ type gamePageData struct {
 	ProductID string
 }
 
-// introPageData feeds the pages that are not playable yet.
-type introPageData struct {
+// stridPageData feeds the "Kund mot kund" page. The lobby itself is rendered
+// by the client from the event stream, so the server only needs to say which
+// code was opened and what state that code is in.
+type stridPageData struct {
 	pageData
-	Intro *introView
-}
+	Product productCard
 
-// introView is the copy shown on the pages that are not playable yet.
-type introView struct {
-	Heading string
-	Lead    string
-	Title   string
-	Body    string
+	Code      string
+	CodeState string
+
+	MinPlayers   int
+	MaxPlayers   int
+	Rounds       int
+	GuessSeconds int
 }
 
 // pageTemplates parses every page once. A page is the shared layout, navbar and
@@ -93,7 +95,6 @@ var pageTemplates = sync.OnceValues(func() (map[string]*template.Template, error
 	shared := []string{
 		"templates/layout.html",
 		"templates/navbar.html",
-		"templates/placeholder.html",
 		"templates/product-card.html",
 		"templates/guess-board.html",
 	}
@@ -187,21 +188,35 @@ func DailyPage(w http.ResponseWriter, r *http.Request) {
 	renderPage(w, dailyPage, data)
 }
 
-// StridPage is still a placeholder. It shares the layout, the navbar and the
-// placeholder partial with the pages that are finished.
+// StridPage renders the lobby shell for "Kund mot kund". The page works both
+// as a landing page (/strid) and as an invite page (/strid/CODE); the client
+// asks the API whether the code is open and whether this browser already has a
+// seat in the lobby.
 func StridPage(w http.ResponseWriter, r *http.Request) {
-	renderPage(w, stridPage, introPageData{
+	code := ""
+	codeState := ""
+
+	if raw := r.PathValue("code"); raw != "" {
+		normalized, ok := normalizeStridCode(raw)
+		if !ok {
+			http.Redirect(w, r, "/strid", http.StatusSeeOther)
+			return
+		}
+		code = normalized
+		codeState = stridLobbies.codeState(code)
+	}
+
+	renderPage(w, stridPage, stridPageData{
 		pageData: pageData{
 			Title:      "Hemköpdle - Kund mot kund",
 			ActiveLink: "/strid",
 			Modes:      modes,
 		},
-		Intro: &introView{
-			Heading: "Kund mot kund",
-			Lead:    "Två kunder, en vara, en vinnare.",
-			Title:   "Striden är inte öppnad än",
-			Body: "Läget är under uppbyggnad. Här kommer du att möta en annan kund " +
-				"öga mot öga och gissa samma vara. Den som kommer närmast priset vinner.",
-		},
+		Code:         code,
+		CodeState:    codeState,
+		MinPlayers:   stridMinPlayers,
+		MaxPlayers:   stridMaxPlayers,
+		Rounds:       stridRounds,
+		GuessSeconds: stridGuessSeconds,
 	})
 }

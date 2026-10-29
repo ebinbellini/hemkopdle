@@ -64,12 +64,28 @@ func Run() {
 		log.Fatalf("Error loading templates: %v", err)
 	}
 
+	stridLobbies.startJanitor()
+
+	mux := newMux()
+
+	listenAddr := os.Getenv("ADDR")
+	fmt.Println("Starting server on", listenAddr)
+	err := http.ListenAndServe(listenAddr, mux)
+	if err != nil {
+		log.Fatalf("Error starting server: %v", err)
+	}
+}
+
+// newMux registers every page, API and static route. It is separate from Run so
+// tests can exercise the same routing without starting a listener.
+func newMux() *http.ServeMux {
 	mux := http.NewServeMux()
 
 	// Pages rendered from go templates
 	mux.HandleFunc("GET /{$}", DailyPage)
 	mux.HandleFunc("GET /slump", SlumpPage)
 	mux.HandleFunc("GET /strid", StridPage)
+	mux.HandleFunc("GET /strid/{code}", StridPage)
 
 	// Game API
 	mux.HandleFunc("/api/daily", DailyHandler)
@@ -81,6 +97,15 @@ func Run() {
 	mux.HandleFunc("/api/slump/guess", SlumpGuessHandler)
 	mux.HandleFunc("/api/slump/answer", SlumpAnswerHandler)
 
+	// Kund mot kund API
+	mux.HandleFunc("/api/strid/lobbies", StridCreateHandler)
+	mux.HandleFunc("/api/strid/join", StridJoinHandler)
+	mux.HandleFunc("/api/strid/ready", StridReadyHandler)
+	mux.HandleFunc("/api/strid/start", StridStartHandler)
+	mux.HandleFunc("/api/strid/guess", StridGuessHandler)
+	mux.HandleFunc("/api/strid/state", StridStateHandler)
+	mux.HandleFunc("/api/strid/events", StridEventsHandler)
+
 	devMode := os.Getenv("DEV_MODE")
 	if devMode == "true" {
 		// Serve static files in development mode. The page routes above are
@@ -89,10 +114,5 @@ func Run() {
 		mux.Handle("/", staticFiles)
 	}
 
-	listenAddr := os.Getenv("ADDR")
-	fmt.Println("Starting server on", listenAddr)
-	err := http.ListenAndServe(listenAddr, mux)
-	if err != nil {
-		log.Fatalf("Error starting server: %v", err)
-	}
+	return mux
 }

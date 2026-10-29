@@ -1,3 +1,183 @@
 {{define "content"}}
-{{template "placeholder" .}}
+<main class="game-page strid-page" id="strid"
+      data-code="{{.Code}}"
+      data-code-state="{{.CodeState}}"
+      data-min-players="{{.MinPlayers}}"
+      data-max-players="{{.MaxPlayers}}"
+      data-rounds="{{.Rounds}}"
+      data-guess-seconds="{{.GuessSeconds}}">
+    <header class="game-header">
+        <h1>Kund mot kund</h1>
+        <p>
+            {{.MinPlayers}}–{{.MaxPlayers}} kunder, {{.Rounds}} rundor och
+            {{.GuessSeconds}} sekunder per gissning. Alla ser samma vara och
+            har en gissning per runda. Den som kommer närmast priset vinner
+            rundan och högst totalpoäng vinner matchen. Ett exakt pris på öret
+            ger 5 000 poäng.
+        </p>
+    </header>
+
+    <p class="strid-error" id="strid-error" hidden></p>
+
+    <section class="strid-panel" id="strid-connecting" hidden>
+        <p class="strid-hint">Ansluter till lobbyn…</p>
+    </section>
+
+    <section class="strid-panel" id="strid-landing" hidden>
+        <div class="strid-card">
+            <h2>Skapa en lobby</h2>
+            <p class="strid-hint">
+                Du blir värd och får en kod som du delar med dina vänner.
+                Sedan väljer alla sitt namn och trycker Redo.
+            </p>
+            <button class="strid-primary" id="strid-create" type="button">Skapa lobby</button>
+        </div>
+
+        <div class="strid-card">
+            <h2>Gå med i en lobby</h2>
+            <form class="strid-inline-form" id="strid-code-form" autocomplete="off">
+                <label class="strid-sr-only" for="strid-code-input">Lobbkod</label>
+                <input class="strid-input strid-code-input" id="strid-code-input"
+                       type="text" maxlength="4" placeholder="ABCD" spellcheck="false"
+                       autocapitalize="characters" aria-label="Lobbkod">
+                <button class="strid-primary" type="submit">Gå med</button>
+            </form>
+            <p class="strid-hint">Ange koden du fick av den som skapade lobbyn.</p>
+        </div>
+    </section>
+
+    <section class="strid-panel" id="strid-join" hidden>
+        <div class="strid-card">
+            <p class="strid-hint">Du är inbjuden till lobby</p>
+            <p class="strid-code" id="strid-join-code">----</p>
+            <form id="strid-join-form" autocomplete="off">
+                <label class="strid-label" for="strid-join-name">Ditt användarnamn</label>
+                <input class="strid-input" id="strid-join-name" type="text"
+                       maxlength="20" autocomplete="nickname" spellcheck="false"
+                       placeholder="Namn">
+                <button class="strid-primary" type="submit">Redo</button>
+            </form>
+            <p class="strid-hint">
+                När du trycker på Redo skickas namnet in och du är redo. Det går
+                inte att ångra.
+            </p>
+        </div>
+    </section>
+
+    <section class="strid-panel" id="strid-lobby" hidden>
+        <div class="strid-card strid-code-card">
+            <span class="strid-code-label">Lobbkod</span>
+            <span class="strid-code" id="strid-code">----</span>
+            <div class="strid-copy-row">
+                <button class="strid-secondary" id="strid-copy-code" type="button">Kopiera kod</button>
+                <button class="strid-secondary" id="strid-copy-link" type="button">Kopiera inbjudningslänk</button>
+            </div>
+            <p class="strid-hint" id="strid-copy-status" hidden></p>
+        </div>
+
+        <form class="strid-card" id="strid-name-form" autocomplete="off" hidden>
+            <h2>Välj ditt användarnamn</h2>
+            <label class="strid-label" for="strid-name-input">Användarnamn</label>
+            <input class="strid-input" id="strid-name-input" type="text"
+                   maxlength="20" autocomplete="nickname" spellcheck="false"
+                   placeholder="Namn">
+            <button class="strid-primary" type="submit">Redo</button>
+            <p class="strid-hint">
+                Namnet skickas in när du trycker på Redo och kan inte ändras
+                efteråt.
+            </p>
+        </form>
+
+        <div class="strid-card">
+            <div class="strid-card-heading">
+                <h2>Spelare</h2>
+                <span class="strid-count" id="strid-player-count"></span>
+            </div>
+            <ul class="strid-player-list" id="strid-players"></ul>
+            <p class="strid-hint" id="strid-lobby-note"></p>
+        </div>
+
+        <button class="strid-primary" id="strid-start" type="button" hidden>Starta matchen</button>
+        <p class="strid-hint strid-waiting" id="strid-waiting" hidden>
+            Väntar på att värden startar matchen…
+        </p>
+    </section>
+
+    <section class="strid-panel" id="strid-match" hidden>
+        <div class="strid-match-head">
+            <span class="strid-round-label" id="strid-round-label"></span>
+            <span class="strid-timer" id="strid-timer">10 s</span>
+        </div>
+
+        <div class="strid-standings" id="strid-standings"></div>
+
+        {{template "product-card" .Product}}
+
+        <form class="guess-form" id="strid-guess-form" autocomplete="off" hidden>
+            <label class="guess-label" for="strid-guess-input">Vad kostar varan?</label>
+            <div class="guess-row">
+                <div class="guess-field">
+                    <input id="strid-guess-input" name="guess" type="text"
+                           inputmode="decimal" spellcheck="false"
+                           placeholder="0,00" aria-label="Pris i kronor">
+                    <span class="guess-unit">kr</span>
+                </div>
+                <button class="guess-submit" id="strid-guess-submit" type="submit">Gissa</button>
+            </div>
+            <p class="guess-error" id="strid-guess-error" hidden></p>
+        </form>
+
+        <p class="strid-hint" id="strid-guess-locked" hidden></p>
+
+        <div class="strid-round-result" id="strid-round-result" hidden>
+            <h2 id="strid-round-result-title"></h2>
+            <p class="answer-price" id="strid-round-price"></p>
+            <p class="strid-closest" id="strid-round-closest"></p>
+            <ol class="strid-results" id="strid-round-results"></ol>
+        </div>
+    </section>
+
+    <section class="strid-panel" id="strid-finished" hidden>
+        <div class="strid-winner-card">
+            <span class="strid-winner-badge">Matchen är slut</span>
+            <h2 id="strid-winner-title"></h2>
+            <p class="strid-winner-names" id="strid-winner-names"></p>
+        </div>
+
+        <div class="strid-card">
+            <h2>Slutställning</h2>
+            <ol class="strid-final-list" id="strid-final-standings"></ol>
+        </div>
+
+        <div class="strid-card" id="strid-recap-card" hidden>
+            <h2>Recap</h2>
+            <p class="strid-hint">
+                Alla varor och vad varje kund gissade. Gröna rutor är exakta,
+                röda är rundans närmaste gissning.
+            </p>
+            <div class="strid-recap-wrap" id="strid-recap"></div>
+            <p class="strid-hint" id="strid-recap-hint" hidden>
+                Svep i tabellen för att se alla kunder.
+            </p>
+        </div>
+
+        <a href="/strid" class="answer-restart">Spela igen</a>
+    </section>
+
+    <section class="strid-panel" id="strid-message" hidden>
+        <div class="strid-card strid-message-card">
+            <h2 id="strid-message-title"></h2>
+            <p class="strid-hint" id="strid-message-body"></p>
+            <a href="/strid" class="strid-primary">Till startsidan</a>
+        </div>
+    </section>
+
+    <noscript>
+        <p class="strid-hint">Kund mot kund kräver JavaScript.</p>
+    </noscript>
+</main>
+{{- end}}
+
+{{define "scripts"}}
+<script src="/strid.js" defer></script>
 {{- end}}

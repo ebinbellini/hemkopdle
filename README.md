@@ -18,6 +18,12 @@ go run hemkopdle.go
 
 Then open <http://localhost:2759>.
 
+## Game modes
+
+- Dagens vara: one product per day.
+- Jag har tur: a random product with six guesses.
+- Kund mot kund: compete in a lobby of 2–5 players
+
 ## Scheduling and politeness
 
 <https://www.hemkop.se/robots.txt> asks for:
