@@ -76,6 +76,11 @@ func Run() {
 	mux.HandleFunc("/api/daily/guess", GuessHandler)
 	mux.HandleFunc("/api/daily/answer", AnswerHandler)
 
+	// Slump API
+	mux.HandleFunc("/api/slump/product", SlumpProductHandler)
+	mux.HandleFunc("/api/slump/guess", SlumpGuessHandler)
+	mux.HandleFunc("/api/slump/answer", SlumpAnswerHandler)
+
 	devMode := os.Getenv("DEV_MODE")
 	if devMode == "true" {
 		// Serve static files in development mode. The page routes above are

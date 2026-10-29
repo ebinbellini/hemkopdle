@@ -27,6 +27,9 @@ type DailyProduct struct {
 var (
 	productsMu sync.RWMutex
 	products   []Product
+	// productIndex makes a product playable by id, which is what the slump mode
+	// needs to score a guess against the item the player started with.
+	productIndex = make(map[string]Product)
 
 	dailyMu   sync.RWMutex
 	dailyData *DailyProduct
@@ -89,8 +92,14 @@ func SetProducts(list []Product) {
 		pool = append(pool, product)
 	}
 
+	index := make(map[string]Product, len(pool))
+	for _, product := range pool {
+		index[product.ID] = product
+	}
+
 	productsMu.Lock()
 	products = pool
+	productIndex = index
 	productsMu.Unlock()
 
 	fmt.Printf("Product pool now holds %d playable products\n", len(pool))
@@ -101,6 +110,16 @@ func ProductCount() int {
 	productsMu.RLock()
 	defer productsMu.RUnlock()
 	return len(products)
+}
+
+// ProductByID returns a playable product by id. The slump mode uses it so the
+// item a game started with keeps working even after the pool was re-scraped.
+func ProductByID(id string) (Product, bool) {
+	productsMu.RLock()
+	defer productsMu.RUnlock()
+
+	product, ok := productIndex[id]
+	return product, ok
 }
 
 // randomProduct picks a random product, avoiding avoidID when possible so that
@@ -247,6 +266,59 @@ func isWarm(distance, price float64) bool {
 	return price > 0 && distance/price <= warmRelative
 }
 
+// roundGuess rounds a guess to whole öre and reports whether it could be a
+// price at all.
+func roundGuess(value float64) (float64, bool) {
+	guess := math.Round(value*100) / 100
+	if math.IsNaN(guess) || math.IsInf(guess, 0) || guess <= 0 {
+		return 0, false
+	}
+	return guess, true
+}
+
+// guessScore compares a guess with a price and reports which way the price is
+// and how close the guess was. Both game modes score guesses through it, so
+// they can never disagree about the rules.
+func guessScore(product Product, guess float64) guessResponse {
+	response := guessResponse{Guess: guess}
+
+	difference := guess - product.Price
+	distance := math.Abs(difference)
+
+	switch {
+	case distance <= winTolerance:
+		response.Result = "correct"
+		response.Warmth = "correct"
+	case isWarm(distance, product.Price):
+		response.Warmth = "warm"
+	default:
+		response.Warmth = "cold"
+	}
+
+	if response.Result == "" {
+		if difference < 0 {
+			response.Result = "low"
+		} else {
+			response.Result = "high"
+		}
+	}
+
+	return response
+}
+
+// toPublicProduct strips everything the player must not see, above all the
+// price, from a product.
+func toPublicProduct(product Product) publicProduct {
+	return publicProduct{
+		ID:        product.ID,
+		Name:      product.Name,
+		Brand:     product.Brand,
+		ImageURL:  product.ImageURL,
+		Amount:    product.Amount,
+		PriceUnit: product.PriceUnit,
+	}
+}
+
 func writeJSON(w http.ResponseWriter, status int, payload any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
@@ -274,15 +346,8 @@ func DailyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, dailyResponse{
-		Date: todayKey(),
-		Product: publicProduct{
-			ID:        product.ID,
-			Name:      product.Name,
-			Brand:     product.Brand,
-			ImageURL:  product.ImageURL,
-			Amount:    product.Amount,
-			PriceUnit: product.PriceUnit,
-		},
+		Date:    todayKey(),
+		Product: toPublicProduct(product),
 	})
 }
 
@@ -307,35 +372,13 @@ func GuessHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	guess := math.Round(request.Guess*100) / 100
-	if math.IsNaN(guess) || math.IsInf(guess, 0) || guess <= 0 {
+	guess, ok := roundGuess(request.Guess)
+	if !ok {
 		writeJSONError(w, http.StatusBadRequest, "gissningen måste vara ett positivt pris")
 		return
 	}
 
-	response := guessResponse{Guess: guess}
-	difference := guess - product.Price
-	distance := math.Abs(difference)
-
-	switch {
-	case distance <= winTolerance:
-		response.Result = "correct"
-		response.Warmth = "correct"
-	case isWarm(distance, product.Price):
-		response.Warmth = "warm"
-	default:
-		response.Warmth = "cold"
-	}
-
-	if response.Result == "" {
-		if difference < 0 {
-			response.Result = "low"
-		} else {
-			response.Result = "high"
-		}
-	}
-
-	writeJSON(w, http.StatusOK, response)
+	writeJSON(w, http.StatusOK, guessScore(product, guess))
 }
 
 // AnswerHandler reveals the price of the product of the day. The frontend calls

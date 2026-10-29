@@ -40,33 +40,42 @@ var modes = []Mode{
 	{Href: "/strid", Label: "Kund mot kund", Icon: "/icons/fight.svg"},
 }
 
-// pageData is what the shared layout, the navbar and a page template get.
+// pageData is what the shared layout and the navbar get from every page.
 type pageData struct {
 	// Title is the document title, ActiveLink the href of the mode to
 	// highlight in the navbar.
 	Title      string
 	ActiveLink string
 	Modes      []Mode
-
-	// Daily is used by the daily game page.
-	Daily dailyView
-	// MaxGuesses and Tolerance describe the rules in the page instructions.
-	MaxGuesses int
-	Tolerance  string
-
-	// Intro is used by the placeholder pages.
-	Intro *introView
 }
 
-// dailyView is the product of the day as the daily game page needs it. The
-// price is deliberately not part of it: that is what the player guesses.
-type dailyView struct {
-	Date       string
+// productCard is the product a game page shows. The price is not part of it:
+// that is what the player guesses.
+type productCard struct {
 	HasProduct bool
 	Name       string
 	Brand      string
 	Amount     string
 	ImageURL   string
+}
+
+// gamePageData feeds the game board that both playable modes share. Only the
+// intro and the data attributes differ between them.
+type gamePageData struct {
+	pageData
+	Product    productCard
+	MaxGuesses int
+	Tolerance  string
+	// Date is set on the daily page (the day the product belongs to) and
+	// ProductID on the slump page (the product being played).
+	Date      string
+	ProductID string
+}
+
+// introPageData feeds the pages that are not playable yet.
+type introPageData struct {
+	pageData
+	Intro *introView
 }
 
 // introView is the copy shown on the pages that are not playable yet.
@@ -85,6 +94,8 @@ var pageTemplates = sync.OnceValues(func() (map[string]*template.Template, error
 		"templates/layout.html",
 		"templates/navbar.html",
 		"templates/placeholder.html",
+		"templates/product-card.html",
+		"templates/guess-board.html",
 	}
 
 	pages := make(map[string]*template.Template, 3)
@@ -109,7 +120,7 @@ func LoadTemplates() error {
 
 // renderPage renders a page into a buffer first, so a template error leaves the
 // response untouched instead of sending half a document.
-func renderPage(w http.ResponseWriter, page string, data pageData) {
+func renderPage(w http.ResponseWriter, page string, data any) {
 	templates, err := pageTemplates()
 	if err != nil {
 		log.Printf("Could not load template %q: %v", page, err)
@@ -139,17 +150,13 @@ func renderPage(w http.ResponseWriter, page string, data pageData) {
 	}
 }
 
-// currentDailyView builds the product card for the daily game page. When the
-// scraper has not produced a product yet the page is still rendered, and the
-// game script picks the product up through /api/daily instead.
-func currentDailyView() dailyView {
-	product, ok := CurrentDailyProduct()
+// productCardFrom turns a product into the card a game page renders.
+func productCardFrom(product Product, ok bool) productCard {
 	if !ok {
-		return dailyView{}
+		return productCard{}
 	}
 
-	return dailyView{
-		Date:       todayKey(),
+	return productCard{
 		HasProduct: true,
 		Name:       product.Name,
 		Brand:      product.Brand,
@@ -161,40 +168,34 @@ func currentDailyView() dailyView {
 // DailyPage renders the daily game with the product of the day already in the
 // markup, so the player sees the product without waiting for a fetch.
 func DailyPage(w http.ResponseWriter, r *http.Request) {
-	renderPage(w, dailyPage, pageData{
-		Title:      "Hemköpdle - Dagens vara",
-		ActiveLink: "/",
-		Modes:      modes,
-		Daily:      currentDailyView(),
+	product, ok := CurrentDailyProduct()
+
+	data := gamePageData{
+		pageData: pageData{
+			Title:      "Hemköpdle - Dagens vara",
+			ActiveLink: "/",
+			Modes:      modes,
+		},
+		Product:    productCardFrom(product, ok),
 		MaxGuesses: MaxGuesses,
 		Tolerance:  toleranceText(),
-	})
+	}
+	if ok {
+		data.Date = todayKey()
+	}
+
+	renderPage(w, dailyPage, data)
 }
 
-// SlumpPage and StridPage are placeholders for the game modes that are not
-// implemented yet. They share the layout, the navbar and the placeholder
-// partial with each other.
-func SlumpPage(w http.ResponseWriter, r *http.Request) {
-	renderPage(w, slumpPage, pageData{
-		Title:      "Hemköpdle - Jag har tur",
-		ActiveLink: "/slump",
-		Modes:      modes,
-		Intro: &introView{
-			Heading: "Jag har tur",
-			Lead:    "Här bestämmer slumpen vilken vara du ska prissätta.",
-			Title:   "Slumpen är inte laddad än",
-			Body: "Läget är under uppbyggnad. Så snart det är klart drar vi en " +
-				"slumpad vara ur sortimentet och du får samma gissningsregler som i " +
-				"Dagens vara.",
-		},
-	})
-}
-
+// StridPage is still a placeholder. It shares the layout, the navbar and the
+// placeholder partial with the pages that are finished.
 func StridPage(w http.ResponseWriter, r *http.Request) {
-	renderPage(w, stridPage, pageData{
-		Title:      "Hemköpdle - Kund mot kund",
-		ActiveLink: "/strid",
-		Modes:      modes,
+	renderPage(w, stridPage, introPageData{
+		pageData: pageData{
+			Title:      "Hemköpdle - Kund mot kund",
+			ActiveLink: "/strid",
+			Modes:      modes,
+		},
 		Intro: &introView{
 			Heading: "Kund mot kund",
 			Lead:    "Två kunder, en vara, en vinnare.",

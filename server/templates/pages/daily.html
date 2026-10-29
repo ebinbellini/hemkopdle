@@ -1,7 +1,6 @@
 {{define "content"}}
-{{- $daily := .Daily}}
-<main class="daily-game" id="daily-game"
-      data-date="{{$daily.Date}}" data-max-guesses="{{.MaxGuesses}}">
+<main class="game-page" id="game"
+      data-mode="daily" data-date="{{.Date}}" data-max-guesses="{{.MaxGuesses}}">
     <header class="game-header">
         <h1>Dagens vara</h1>
         <p>
@@ -10,45 +9,16 @@
         </p>
     </header>
 
-    <p class="game-status" id="game-status"{{if $daily.HasProduct}} hidden{{end}}>Laddar dagens vara…</p>
+    <p class="game-status" id="game-status"{{if .Product.HasProduct}} hidden{{end}}>Laddar dagens vara…</p>
 
-    <article class="product-card" id="product-card"{{if not $daily.HasProduct}} hidden{{end}}>
-        <div class="product-image">
-            <img id="product-image" src="{{$daily.ImageURL}}"
-                 alt="{{if $daily.HasProduct}}{{$daily.Name}}{{else}}Dagens vara{{end}}">
-        </div>
-        <div class="product-details">
-            <span class="product-brand" id="product-brand"
-                  {{- if or (not $daily.HasProduct) (not $daily.Brand)}} hidden{{end}}>{{$daily.Brand}}</span>
-            <h2 class="product-name" id="product-name">{{$daily.Name}}</h2>
-            <span class="product-amount" id="product-amount"
-                  {{- if or (not $daily.HasProduct) (not $daily.Amount)}} hidden{{end}}>{{$daily.Amount}}</span>
-        </div>
-    </article>
+    {{template "product-card" .Product}}
 
-    <form class="guess-form" id="guess-form" autocomplete="off"{{if not $daily.HasProduct}} hidden{{end}}>
-        <label class="guess-label" for="guess-input">Vad kostar varan?</label>
-        <div class="guess-row">
-            <div class="guess-field">
-                <input id="guess-input" name="guess" type="text" inputmode="decimal"
-                       spellcheck="false" placeholder="0,00" aria-label="Pris i kronor">
-                <span class="guess-unit">kr</span>
-            </div>
-            <button class="guess-submit" id="guess-submit" type="submit">Gissa</button>
-        </div>
-        <p class="guess-error" id="guess-error" hidden></p>
-    </form>
-
-    <div class="attempts" id="attempts"{{if not $daily.HasProduct}} hidden{{end}}></div>
-
-    <div class="feedback" id="feedback" hidden></div>
-
-    <ol class="guess-history" id="guess-history"></ol>
-
-    <div class="answer" id="answer" hidden></div>
+    {{template "guess-board" .Product}}
 </main>
 {{- end}}
 
 {{define "scripts"}}
-<script src="/script.js" defer></script>
+<script src="/game.js" defer></script>
+<script src="/daily.js" defer></script>
 {{- end}}
+

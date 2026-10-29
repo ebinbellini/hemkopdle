@@ -1,0 +1,15 @@
+{{define "product-card"}}
+<article class="product-card" id="product-card"{{if not .HasProduct}} hidden{{end}}>
+    <div class="product-image">
+        <img id="product-image" src="{{.ImageURL}}"
+             alt="{{if .HasProduct}}{{.Name}}{{else}}Varan{{end}}">
+    </div>
+    <div class="product-details">
+        <span class="product-brand" id="product-brand"
+              {{- if or (not .HasProduct) (not .Brand)}} hidden{{end}}>{{.Brand}}</span>
+        <h2 class="product-name" id="product-name">{{.Name}}</h2>
+        <span class="product-amount" id="product-amount"
+              {{- if or (not .HasProduct) (not .Amount)}} hidden{{end}}>{{.Amount}}</span>
+    </div>
+</article>
+{{- end}}

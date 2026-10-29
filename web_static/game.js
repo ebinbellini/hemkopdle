@@ -1,14 +1,9 @@
 /* ---------------------------------------------------------------- *
- * Dagens vara                                                      *
- * The page is rendered by the server (see server/templates); this   *
- * script only adds the gameplay on top of it.                       *
+ * Spelbrädan                                                       *
+ * Delas av alla spellägen. En lägesspecifik fil (daily.js,          *
+ * slump.js) bestämmer vilka endpoints som används och anropar       *
+ * start_game() när den vet vilken vara som spelas.                  *
  * ---------------------------------------------------------------- */
-
-const STORAGE_PREFIX = "hemkopdle:daily:";
-
-// The number of guesses is owned by the Go code and handed to the page as a
-// data attribute, so it only has to be changed in one place.
-let MAX_GUESSES = 6;
 
 const WARMTH_LABELS = {
     warm: "Varmt",
@@ -24,6 +19,21 @@ const LEGACY_WARMTH = {
     lukewarm: "warm",
     icecold: "cold",
 };
+
+// The number of guesses is owned by the Go code and handed to the page as a
+// data attribute, so it only has to be changed in one place.
+let MAX_GUESSES = 6;
+
+const game = {
+    config: null,
+    guesses: [],
+    solved: false,
+    revealed: false,
+    answer: null,
+    busy: false,
+};
+
+const els = {};
 
 function normalize_warmth(warmth) {
     if (warmth === "warm" || warmth === "cold" || warmth === "correct") {
@@ -45,18 +55,6 @@ function guess_arrow(guess) {
     arrow.setAttribute("aria-label", guess.result === "low" ? "Priset är högre" : "Priset är lägre");
     return arrow;
 }
-
-const game = {
-    date: null,
-    product: null,
-    guesses: [],
-    solved: false,
-    revealed: false,
-    answer: null,
-    busy: false,
-};
-
-const els = {};
 
 function cache_elements() {
     els.status = document.getElementById("game-status");
@@ -85,85 +83,32 @@ function bind_events() {
     });
 }
 
-/* ---------------------------- API -------------------------------- */
+/* ------------------------ Bootstrapping -------------------------- */
 
-async function load_daily() {
-    try {
-        const response = await fetch("/api/daily", { headers: { Accept: "application/json" } });
-        if (!response.ok) {
-            throw new Error("HTTP " + response.status);
-        }
-        const data = await response.json();
-        apply_product(data);
-    } catch (error) {
-        set_status("Kunde inte hämta dagens vara. Försöker igen…");
-        setTimeout(load_daily, 5000);
-    }
+// Caches the elements and hooks up the form. A mode script calls this before it
+// knows what is being played, so it can report errors while it fetches.
+function init_game_ui() {
+    cache_elements();
+    bind_events();
 }
 
-async function fetch_answer() {
-    try {
-        const response = await fetch("/api/daily/answer", { headers: { Accept: "application/json" } });
-        if (!response.ok) {
-            return;
-        }
-        game.answer = await response.json();
-        save_state();
-    } catch (error) {
-        // The answer is displayed when the request succeeds; nothing else to do.
-    }
-}
+// Starts a game once the mode script knows the product and the endpoints.
+function start_game(config) {
+    game.config = config;
+    game.guesses = [];
+    game.solved = false;
+    game.revealed = false;
+    game.answer = null;
+    game.busy = false;
 
-/* --------------------------- Rendering --------------------------- */
-
-// Reads what the server rendered into the page and starts the game on top of it.
-function init_daily() {
-    const root = document.getElementById("daily-game");
-    if (!root) {
-        return;
-    }
-
+    const root = document.getElementById("game");
     const maxGuesses = Number(root.dataset.maxGuesses);
     if (Number.isInteger(maxGuesses) && maxGuesses > 0) {
         MAX_GUESSES = maxGuesses;
     }
 
-    if (!root.dataset.date) {
-        // The server had no product to render yet (the scraper may still be
-        // running), so fetch one and fill in the card when it arrives.
-        load_daily();
-        return;
-    }
+    restore_state();
 
-    restore_state(root.dataset.date);
-    start_game();
-}
-
-// Restores the guesses for one day from localStorage.
-function restore_state(date) {
-    game.date = date;
-    game.guesses = [];
-    game.solved = false;
-    game.revealed = false;
-    game.answer = null;
-
-    const saved = read_saved_state(date);
-    if (!saved) {
-        return;
-    }
-
-    game.guesses = Array.isArray(saved.guesses) ? saved.guesses : [];
-    // Normalise guesses stored by an older version of the game.
-    game.guesses.forEach((guess) => {
-        guess.warmth = normalize_warmth(guess.warmth);
-    });
-    game.solved = Boolean(saved.solved);
-    game.revealed = Boolean(saved.revealed) || (!game.solved && game.guesses.length >= MAX_GUESSES);
-    game.answer = saved.answer || null;
-}
-
-// Shows the blocks that only make sense once there is a product to guess on.
-function start_game() {
     set_status("");
     els.card.hidden = false;
     els.form.hidden = false;
@@ -180,21 +125,90 @@ function start_game() {
     }
 }
 
-// Fallback for a page rendered before the scraper had produced a product.
-function apply_product(data) {
-    game.product = data.product;
-
-    els.image.src = data.product.image_url || "";
-    els.image.alt = data.product.name || "Dagens vara";
-    els.name.textContent = data.product.name || "";
-    els.brand.textContent = data.product.brand || "";
-    els.brand.hidden = !data.product.brand;
-    els.amount.textContent = data.product.amount || "";
-    els.amount.hidden = !data.product.amount;
-
-    restore_state(data.date);
-    start_game();
+// Fills the card from a public product payload. The server normally renders the
+// card itself; this is the fallback when it had no product to render.
+function fill_product_card(product) {
+    els.image.src = product.image_url || "";
+    els.image.alt = product.name || "Varan";
+    els.name.textContent = product.name || "";
+    els.brand.textContent = product.brand || "";
+    els.brand.hidden = !product.brand;
+    els.amount.textContent = product.amount || "";
+    els.amount.hidden = !product.amount;
 }
+
+/* ---------------------------- API -------------------------------- */
+
+async function fetch_answer() {
+    try {
+        const response = await fetch(game.config.answer_url, { headers: { Accept: "application/json" } });
+        if (!response.ok) {
+            return;
+        }
+        game.answer = await response.json();
+        save_state();
+    } catch (error) {
+        // The answer is displayed when the request succeeds; nothing else to do.
+    }
+}
+
+async function submit_guess(raw) {
+    if (is_game_over() || game.busy) {
+        return;
+    }
+
+    const guess = parse_guess(raw);
+    if (guess === null) {
+        show_error("Ange ett pris i kronor, till exempel 24,50.");
+        return;
+    }
+    show_error("");
+
+    game.busy = true;
+    render();
+
+    try {
+        const response = await fetch(game.config.guess_url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Accept: "application/json" },
+            body: JSON.stringify(game.config.guess_body(guess)),
+        });
+
+        if (!response.ok) {
+            throw new Error("HTTP " + response.status);
+        }
+
+        const data = await response.json();
+        game.guesses.push({
+            guess: guess,
+            result: data.result,
+            warmth: normalize_warmth(data.warmth),
+        });
+
+        if (data.result === "correct") {
+            game.solved = true;
+        } else if (game.guesses.length >= MAX_GUESSES) {
+            game.revealed = true;
+        }
+
+        if (is_game_over()) {
+            await fetch_answer();
+        }
+
+        els.input.value = "";
+        save_state();
+    } catch (error) {
+        show_error("Kunde inte skicka gissningen. Försök igen.");
+    } finally {
+        game.busy = false;
+        render();
+        if (!is_game_over()) {
+            els.input.focus();
+        }
+    }
+}
+
+/* --------------------------- Rendering --------------------------- */
 
 function set_status(message) {
     if (!els.status) {
@@ -202,6 +216,11 @@ function set_status(message) {
     }
     els.status.textContent = message;
     els.status.hidden = message === "";
+}
+
+function show_error(message) {
+    els.error.textContent = message;
+    els.error.hidden = message === "";
 }
 
 function render() {
@@ -309,13 +328,20 @@ function render_answer() {
 
     const note = document.createElement("p");
     note.className = "answer-note";
-    note.textContent = game.solved
-        ? "Snyggt gissat! En ny vara väntar vid midnatt."
-        : "En ny vara väntar vid midnatt. Då tar du den!";
+    note.textContent = game.solved ? game.config.notes.win : game.config.notes.lose;
 
     els.answer.className = "answer " + (game.solved ? "answer-win" : "answer-lose");
     els.answer.textContent = "";
     els.answer.append(title, price, note);
+
+    if (game.config.restart) {
+        const restart = document.createElement("a");
+        restart.className = "answer-restart";
+        restart.href = game.config.restart.href;
+        restart.textContent = game.config.restart.label;
+        els.answer.append(restart);
+    }
+
     els.answer.hidden = false;
 }
 
@@ -353,7 +379,7 @@ function describe_guess(guess) {
 }
 
 function join_parts(...parts) {
-    return parts.filter(Boolean).join(" - ");
+    return parts.filter(Boolean).join(" – ");
 }
 
 function format_kr(value) {
@@ -363,84 +389,42 @@ function format_kr(value) {
     return value.toFixed(2).replace(".", ",") + " kr";
 }
 
-function show_error(message) {
-    els.error.textContent = message;
-    els.error.hidden = message === "";
-}
-
-async function submit_guess(raw) {
-    if (is_game_over() || game.busy) {
-        return;
-    }
-
-    const guess = parse_guess(raw);
-    if (guess === null) {
-        show_error("Ange ett pris i kronor, till exempel 24,50.");
-        return;
-    }
-    show_error("");
-
-    game.busy = true;
-    render();
-
-    try {
-        const response = await fetch("/api/daily/guess", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Accept: "application/json" },
-            body: JSON.stringify({ guess: guess }),
-        });
-
-        if (!response.ok) {
-            throw new Error("HTTP " + response.status);
-        }
-
-        const data = await response.json();
-        game.guesses.push({
-            guess: guess,
-            result: data.result,
-            warmth: normalize_warmth(data.warmth),
-        });
-
-        if (data.result === "correct") {
-            game.solved = true;
-        } else if (game.guesses.length >= MAX_GUESSES) {
-            game.revealed = true;
-        }
-
-        if (is_game_over()) {
-            await fetch_answer();
-        }
-
-        els.input.value = "";
-        save_state();
-    } catch (error) {
-        show_error("Kunde inte skicka gissningen. Försök igen.");
-    } finally {
-        game.busy = false;
-        render();
-        if (!is_game_over()) {
-            els.input.focus();
-        }
-    }
-}
-
 /* --------------------------- Persistence ------------------------- */
 
-function read_saved_state(date) {
+function read_saved_state() {
+    if (!game.config.storage_key) {
+        return null;
+    }
     try {
-        const raw = window.localStorage.getItem(STORAGE_PREFIX + date);
+        const raw = window.localStorage.getItem(game.config.storage_key);
         return raw ? JSON.parse(raw) : null;
     } catch (error) {
         return null;
     }
 }
 
+function restore_state() {
+    const saved = read_saved_state();
+    if (!saved) {
+        return;
+    }
+
+    game.guesses = Array.isArray(saved.guesses) ? saved.guesses : [];
+    // Normalise guesses stored by an older version of the game.
+    game.guesses.forEach((guess) => {
+        guess.warmth = normalize_warmth(guess.warmth);
+    });
+    game.solved = Boolean(saved.solved);
+    game.revealed = Boolean(saved.revealed) || (!game.solved && game.guesses.length >= MAX_GUESSES);
+    game.answer = saved.answer || null;
+}
+
 function save_state() {
-    if (!game.date) {
+    if (!game.config.storage_key) {
         return;
     }
     try {
-        window.localStorage.setItem(STORAGE_PREFIX + game.date, JSON.stringify({
+        window.localStorage.setItem(game.config.storage_key, JSON.stringify({
             guesses: game.guesses,
             solved: game.solved,
             revealed: game.revealed,
@@ -450,9 +434,3 @@ function save_state() {
         // Private mode or a full quota: the game still works without storage.
     }
 }
-
-document.addEventListener("DOMContentLoaded", () => {
-    cache_elements();
-    bind_events();
-    init_daily();
-});

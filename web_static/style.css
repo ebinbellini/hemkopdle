@@ -198,7 +198,7 @@ body {
     min-height: 100vh;
 }
 
-.daily-game {
+.game-page {
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
@@ -534,8 +534,25 @@ body {
     color: var(--hk-muted);
 }
 
+.answer-restart {
+    display: inline-block;
+    margin-top: clamp(6px, 1vh, 10px);
+    padding: 6px 20px;
+    font-size: clamp(13px, 1.8vh, 15px);
+    font-weight: 700;
+    color: #ffffff;
+    background: var(--hk-red);
+    border-radius: 999px;
+    text-decoration: none;
+    transition: background-color 120ms ease;
+}
+
+.answer-restart:hover {
+    background: var(--hk-red-dark);
+}
+
 @media (max-width: 480px) {
-    .daily-game {
+    .game-page {
         padding-top: 80px;
     }
 

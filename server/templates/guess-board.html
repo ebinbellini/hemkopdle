@@ -1,0 +1,22 @@
+{{define "guess-board"}}
+<form class="guess-form" id="guess-form" autocomplete="off"{{if not .HasProduct}} hidden{{end}}>
+    <label class="guess-label" for="guess-input">Vad kostar varan?</label>
+    <div class="guess-row">
+        <div class="guess-field">
+            <input id="guess-input" name="guess" type="text" inputmode="decimal"
+                   spellcheck="false" placeholder="0,00" aria-label="Pris i kronor">
+            <span class="guess-unit">kr</span>
+        </div>
+        <button class="guess-submit" id="guess-submit" type="submit">Gissa</button>
+    </div>
+    <p class="guess-error" id="guess-error" hidden></p>
+</form>
+
+<div class="attempts" id="attempts"{{if not .HasProduct}} hidden{{end}}></div>
+
+<div class="feedback" id="feedback" hidden></div>
+
+<ol class="guess-history" id="guess-history"></ol>
+
+<div class="answer" id="answer" hidden></div>
+{{- end}}
