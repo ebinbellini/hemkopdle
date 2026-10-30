@@ -10,7 +10,7 @@ Guess the price of products [hemkop.se](https://www.hemkop.se).
 
 Copy .env.example to .env and edit the values therein.
 
-## 3. Run
+## Run
 
 ```bash
 go run hemkopdle.go
@@ -33,5 +33,9 @@ Crawl-delay: 10
 Visit-time: 0400-0845      # UTC
 ```
 
-The cron runs on `0 6 * * 1`, which is Monday morning local time.
+The scraper respects both with the default values in .env, where SCRAPE_DELAY
+sets the delay between each request, and SCRAPE_CRON_SCHED controls when the
+scraping is performed. The first startup scrape is allowed outside the visit
+window, so a fresh installation gets products immediately. It still uses the
+crawl delay.
 

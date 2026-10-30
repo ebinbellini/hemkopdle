@@ -8,6 +8,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	server "github.com/ebinbellini/hemkopdle/server"
@@ -17,7 +18,7 @@ const (
 	baseURL           = "https://www.hemkop.se"
 	sortimentPrefix   = baseURL + "/sortiment/"
 	categoryTreePath  = "/leftMenu/categorytree"
-	categoryCacheFile = "/tmp/category_map_cache.bin"
+	categoryCacheFile = "/tmp/hemkodple_category_map_cache.bin"
 )
 
 // categoryNode is one node of the /leftMenu/categorytree response. Only the
@@ -165,30 +166,56 @@ func FindProductsInCategory(hc *http.Client, cat *server.Category) ([]server.Pro
 	return products, nil
 }
 
+// Scrape runs a scheduled scrape. It refuses to start outside hemkop.se's
+// visit window (04:00-08:45 UTC); the startup path uses ScrapeAtStartup
+// instead so a fresh installation can still fetch products immediately. Once a
+// run has started it is allowed to finish even if it crosses the end of the
+// visit window.
 func Scrape() error {
-	client := http.Client{Timeout: 30 * time.Second}
-	categories, err := DiscoverCategories(&client)
+	return scrapeAt(time.Now, false)
+}
+
+// ScrapeAtStartup is the one deliberate exception to the visit window: a new
+// installation with no cached products is allowed to crawl outside the allowed
+// hours. The crawl delay is still enforced.
+func ScrapeAtStartup() error {
+	return scrapeAt(time.Now, true)
+}
+
+// scrapeMu serializes the startup scrape and scheduled scrapes. Without it two
+// runs could overlap and make requests closer together than the crawl delay.
+var scrapeMu sync.Mutex
+
+func scrapeAt(now func() time.Time, allowOutsideVisitTime bool) error {
+	scrapeMu.Lock()
+	defer scrapeMu.Unlock()
+
+	// This is the only visit-time check. Once the scrape has started it runs
+	// to completion even if it crosses the end of the window.
+	if !allowOutsideVisitTime {
+		if err := ensureVisitTime(now()); err != nil {
+			return err
+		}
+	}
+
+	delay := crawlDelay()
+	fmt.Printf("Crawling hemkop.se with a %s delay\n", delay)
+	client := newCrawlClient(30*time.Second, delay)
+	categories, err := DiscoverCategories(client)
 	categoryMap := make(map[string]server.Category)
 
 	if err != nil {
 		return fmt.Errorf("error discovering categories: %w", err)
 	}
 
-	mappedCount := 0
 	for _, cat := range categories {
 		fmt.Println("Scraping category:", cat.URL, "Name:", cat.Names, "Slug:", cat.Slugs)
-		products, err := FindProductsInCategory(&client, &cat)
+		products, err := FindProductsInCategory(client, &cat)
 		if err != nil {
 			return fmt.Errorf("error finding products in category %s: %w", cat.Names, err)
 		}
 		cat.Products = products
 		categoryMap[cat.Names[0]] = cat
-
-		// TODO remove. Don't want to scrape everything while testing.
-		mappedCount++
-		if mappedCount >= 50 {
-			break
-		}
 	}
 
 	// Rebuilding the category map also flattens every product into the pool
@@ -214,8 +241,8 @@ func LoadOrScrape() {
 	// Check if the category map is already stored on disk
 	file, err := os.Open(categoryCacheFile)
 	if err != nil {
-		fmt.Println("Category map not found on disk, scraping...")
-		err = Scrape()
+		fmt.Println("Category map not found on disk, scraping outside the visit window is allowed on startup...")
+		err = ScrapeAtStartup()
 		if err != nil {
 			fmt.Println("Error scraping categories:", err)
 			return
@@ -225,9 +252,11 @@ func LoadOrScrape() {
 		categoryMap := make(map[string]server.Category)
 		err = gob.NewDecoder(file).Decode(&categoryMap)
 		if err != nil {
-			// Empty or stale cache: rebuild it instead of giving up.
-			fmt.Println("Error loading category map from disk, scraping...", err)
-			err = Scrape()
+			// Empty or stale cache: rebuild it instead of giving up. A broken
+			// cache is treated like a fresh startup, so the visit window is
+			// bypassed once here as well.
+			fmt.Println("Error loading category map from disk, scraping outside the visit window is allowed on startup...", err)
+			err = ScrapeAtStartup()
 			if err != nil {
 				fmt.Println("Error scraping categories:", err)
 			}

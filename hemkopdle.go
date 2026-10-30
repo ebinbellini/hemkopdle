@@ -1,9 +1,11 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/ebinbellini/hemkopdle/scraper"
 	"github.com/ebinbellini/hemkopdle/server"
@@ -20,7 +22,7 @@ func main() {
 	fmt.Println("Starting server")
 	go server.Run()
 
-	fmt.Println("Running scraper")
+	fmt.Println("Running scraper (the startup scrape may run outside the visit window)")
 	go func() {
 		scraper.LoadOrScrape()
 		// Pick today's product as soon as the first products are available.
@@ -30,13 +32,24 @@ func main() {
 	}()
 
 	fmt.Println("Activate CRON schedule for scraper")
-	sched := os.Getenv("SCRAPE_CRON_SCHED")
+	sched := strings.TrimSpace(os.Getenv("SCRAPE_CRON_SCHED"))
+	if sched == "" {
+		// Default value
+		sched = "0 6 * * 1"
+	}
+	fmt.Println("Scheduled scrapes run at", sched)
 	c := cron.New()
 	_, err = c.AddFunc(sched, func() {
-		fmt.Println("Running shceduled scraper")
+		fmt.Println("Running scheduled scraper")
 		err := scraper.Scrape()
+		if errors.Is(err, scraper.ErrOutsideVisitTime) {
+			fmt.Println("Skipping scheduled scrape:", err)
+			return
+		}
 		if err != nil {
-			log.Fatal(err)
+			// A failed scrape should not take the game server down. The next
+			// scheduled run can try again.
+			fmt.Println("Scheduled scrape failed:", err)
 		}
 	})
 	if err != nil {
