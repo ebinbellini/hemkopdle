@@ -83,9 +83,14 @@ func playableProduct(p Product) bool {
 func SetProducts(list []Product) {
 	pool := make([]Product, 0, len(list))
 	seen := make(map[string]bool, len(list))
+	unplayable := 0
 
 	for _, product := range list {
-		if !playableProduct(product) || seen[product.ID] {
+		if !playableProduct(product) {
+			unplayable++
+			continue
+		}
+		if seen[product.ID] {
 			continue
 		}
 		seen[product.ID] = true
@@ -102,7 +107,8 @@ func SetProducts(list []Product) {
 	productIndex = index
 	productsMu.Unlock()
 
-	fmt.Printf("Product pool now holds %d playable products\n", len(pool))
+	fmt.Printf("Product pool now holds %d playable products (%d unplayable dropped, %d duplicate listings skipped)\n",
+		len(pool), unplayable, len(list)-unplayable-len(pool))
 }
 
 // ProductCount returns how many products are available for the daily pick.

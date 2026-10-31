@@ -19,6 +19,15 @@ const (
 	sortimentPrefix   = baseURL + "/sortiment/"
 	categoryTreePath  = "/leftMenu/categorytree"
 	categoryCacheFile = "/tmp/hemkodple_category_map_cache.bin"
+
+	// pageSize is the largest page the category search endpoint accepts. It
+	// caps whatever is requested (size=1000 still returns 100), so asking for
+	// more only wastes a request.
+	pageSize = 100
+
+	// maxCategoryPages is a safety net against a broken/looping pagination
+	// response. The biggest real category (Skafferi) needs 31 pages.
+	maxCategoryPages = 200
 )
 
 // categoryNode is one node of the /leftMenu/categorytree response. Only the
@@ -43,6 +52,12 @@ type CategoryRawData struct {
 			URL string `json:"url"`
 		} `json:"image"`
 	} `json:"results"`
+	Pagination struct {
+		PageSize             int `json:"pageSize"`
+		CurrentPage          int `json:"currentPage"`
+		NumberOfPages        int `json:"numberOfPages"`
+		TotalNumberOfResults int `json:"totalNumberOfResults"`
+	} `json:"pagination"`
 }
 
 // DiscoverCategories fetches the category tree and flattens it into a sorted
@@ -101,10 +116,11 @@ func DiscoverCategories(hc *http.Client) ([]server.Category, error) {
 	return cats, nil
 }
 
-// FetchCategoryRawData requests the JSON search response for a category and
-// decodes it into a CategoryRawData.
-func FetchCategoryRawData(hc *http.Client, cat *server.Category) (*CategoryRawData, error) {
-	url := strings.Replace(cat.URL, sortimentPrefix, baseURL+"/c/", 1) + "?size=30&page=0"
+// FetchCategoryRawData requests one page of the JSON search response for a
+// category and decodes it into a CategoryRawData.
+func FetchCategoryRawData(hc *http.Client, cat *server.Category, page int) (*CategoryRawData, error) {
+	url := fmt.Sprintf("%s?size=%d&page=%d",
+		strings.Replace(cat.URL, sortimentPrefix, baseURL+"/c/", 1), pageSize, page)
 
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
@@ -153,14 +169,47 @@ func ExtractProducts(raw *CategoryRawData, cat *server.Category) []server.Produc
 	return products
 }
 
-// FindProductsInCategory fetches a category's products and returns them.
+// FindProductsInCategory fetches every page of a category and returns all of
+// its products. A category is a whole subtree of the category tree, so this is
+// where the bulk of the catalogue comes from: the old code only ever read the
+// first 30 results of each category.
 func FindProductsInCategory(hc *http.Client, cat *server.Category) ([]server.Product, error) {
-	raw, err := FetchCategoryRawData(hc, cat)
-	if err != nil {
-		return nil, err
+	products := make([]server.Product, 0, pageSize)
+	seen := make(map[string]bool, pageSize)
+
+	for page := 0; ; page++ {
+		if page >= maxCategoryPages {
+			fmt.Printf("Stopping at %d pages for category %s\n", page, cat.URL)
+			break
+		}
+
+		raw, err := FetchCategoryRawData(hc, cat, page)
+		if err != nil {
+			if page > 0 {
+				// Keep what we already have instead of losing the whole
+				// category because of one bad page.
+				fmt.Printf("Page %d of %s failed, keeping %d products: %v\n", page, cat.URL, len(products), err)
+				break
+			}
+			return nil, err
+		}
+
+		for _, product := range ExtractProducts(raw, cat) {
+			if product.ID != "" && seen[product.ID] {
+				continue
+			}
+			seen[product.ID] = true
+			products = append(products, product)
+		}
+
+		// numberOfPages is authoritative; an empty page guards against it
+		// being wrong (or missing on a category with no results).
+		lastPage := raw.Pagination.NumberOfPages - 1
+		if len(raw.Results) == 0 || page >= lastPage {
+			break
+		}
 	}
 
-	products := ExtractProducts(raw, cat)
 	fmt.Printf("Found %d products in category: %s\n", len(products), cat.URL)
 
 	return products, nil
@@ -208,14 +257,30 @@ func scrapeAt(now func() time.Time, allowOutsideVisitTime bool) error {
 		return fmt.Errorf("error discovering categories: %w", err)
 	}
 
+	// Key the map by the full slug path. Keying by the top level name made
+	// every subcategory of a group overwrite the previous one, so only 20 of
+	// the 516 categories ever survived and the product pool stayed tiny.
+	failed := 0
 	for _, cat := range categories {
+		key := strings.Join(cat.Slugs, "/")
 		fmt.Println("Scraping category:", cat.URL, "Name:", cat.Names, "Slug:", cat.Slugs)
 		products, err := FindProductsInCategory(client, &cat)
 		if err != nil {
-			return fmt.Errorf("error finding products in category %s: %w", cat.Names, err)
+			// One bad category must not discard an otherwise good crawl.
+			failed++
+			fmt.Printf("Skipping category %s: %v\n", cat.URL, err)
+			continue
 		}
 		cat.Products = products
-		categoryMap[cat.Names[0]] = cat
+		categoryMap[key] = cat
+	}
+
+	if len(categoryMap) == 0 {
+		return fmt.Errorf("every category failed to scrape (%d tried)", failed)
+	}
+	if failed > 0 {
+		fmt.Printf("%d of %d categories failed, keeping the %d that worked\n",
+			failed, len(categories), len(categoryMap))
 	}
 
 	// Rebuilding the category map also flattens every product into the pool
@@ -237,32 +302,37 @@ func scrapeAt(now func() time.Time, allowOutsideVisitTime bool) error {
 	return nil
 }
 
-func LoadOrScrape() {
-	// Check if the category map is already stored on disk
+// readCategoryCache loads the category map from disk.
+func readCategoryCache() (map[string]server.Category, error) {
 	file, err := os.Open(categoryCacheFile)
 	if err != nil {
-		fmt.Println("Category map not found on disk, scraping outside the visit window is allowed on startup...")
-		err = ScrapeAtStartup()
-		if err != nil {
-			fmt.Println("Error scraping categories:", err)
-			return
-		}
-	} else {
-		defer file.Close()
-		categoryMap := make(map[string]server.Category)
-		err = gob.NewDecoder(file).Decode(&categoryMap)
-		if err != nil {
-			// Empty or stale cache: rebuild it instead of giving up. A broken
-			// cache is treated like a fresh startup, so the visit window is
-			// bypassed once here as well.
-			fmt.Println("Error loading category map from disk, scraping outside the visit window is allowed on startup...", err)
-			err = ScrapeAtStartup()
-			if err != nil {
-				fmt.Println("Error scraping categories:", err)
-			}
-			return
-		}
+		return nil, err
+	}
+	defer file.Close()
+
+	categoryMap := make(map[string]server.Category)
+	if err := gob.NewDecoder(file).Decode(&categoryMap); err != nil {
+		return nil, err
+	}
+	if len(categoryMap) == 0 {
+		return nil, fmt.Errorf("cache holds no categories")
+	}
+
+	return categoryMap, nil
+}
+
+func LoadOrScrape() {
+	categoryMap, err := readCategoryCache()
+	if err == nil {
 		server.SetCategoryMap(categoryMap)
-		fmt.Println("Loaded category map from disk")
+		fmt.Printf("Loaded category map from disk (%d categories)\n", len(categoryMap))
+		return
+	}
+
+	// A missing or unreadable cache is treated like a fresh installation, so
+	// the visit window is bypassed once here as well.
+	fmt.Println("No usable category map on disk, scraping outside the visit window is allowed on startup... (" + err.Error() + ")")
+	if err := ScrapeAtStartup(); err != nil {
+		fmt.Println("Error scraping categories:", err)
 	}
 }

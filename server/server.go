@@ -33,8 +33,9 @@ type Category struct {
 	Products []Product `json:"products,omitempty"`
 }
 
-// CategoryMap holds every scraped category keyed by its top level name.
-// The scraper replaces it through SetCategoryMap.
+// CategoryMap holds every scraped category keyed by its full slug path
+// (e.g. "skafferi/kaffe/bryggkaffe"). The scraper replaces it through
+// SetCategoryMap.
 var CategoryMap = make(map[string]Category)
 
 var categoryMu sync.RWMutex
