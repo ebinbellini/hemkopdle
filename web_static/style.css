@@ -1121,6 +1121,21 @@ body {
     align-self: center;
 }
 
+button.answer-restart {
+    font-family: inherit;
+    border: none;
+    cursor: pointer;
+}
+
+button.answer-restart:disabled {
+    background: #f0c3c8;
+    cursor: default;
+}
+
+.strid-again-note {
+    text-align: center;
+}
+
 .strid-message-card {
     align-items: flex-start;
 }

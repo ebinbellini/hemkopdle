@@ -450,6 +450,35 @@ func (l *stridLobby) start(token string) error {
 	return nil
 }
 
+// playAgain returns a finished lobby to the waiting room with the same
+// players, names and ready flags. Scores are cleared, so the host can start a
+// completely new match without anyone having to create or join a new lobby.
+func (l *stridLobby) playAgain(token string) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	if _, err := l.memberLocked(token); err != nil {
+		return err
+	}
+	if l.status != stridStatusFinished {
+		return newStridError(http.StatusConflict, "matchen är inte slut ännu")
+	}
+
+	l.status = stridStatusWaiting
+	l.match = nil
+	// Invalidate any timer that might still be associated with the old match.
+	l.timerGeneration++
+
+	for _, player := range l.players {
+		player.Score = 0
+		player.ExactCount = 0
+	}
+
+	l.touchLocked()
+	l.broadcastLocked()
+	return nil
+}
+
 func (l *stridLobby) guess(token string, raw float64) (float64, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()

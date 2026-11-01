@@ -321,6 +321,35 @@ func TestStridLobbyLifecycle(t *testing.T) {
 	if _, err := lobby.guess(host.Token, 10); stridStatusOf(err) != http.StatusConflict {
 		t.Fatalf("guess after finish: got %v", err)
 	}
+
+	// "Spela igen" takes the finished lobby back to the waiting room with the
+	// same players, names and ready flags, but reset scores.
+	if err := lobby.playAgain(host.Token); err != nil {
+		t.Fatalf("play again: %v", err)
+	}
+
+	state, err = lobby.state(host.Token)
+	if err != nil {
+		t.Fatalf("state after play again: %v", err)
+	}
+	if state.Status != stridStatusWaiting || state.Phase != stridPhaseLobby {
+		t.Fatalf("unexpected state after play again: %+v", state)
+	}
+	if state.Round != nil || state.Recap != nil || len(state.Winners) != 0 {
+		t.Fatalf("old match data survived play again: %+v", state)
+	}
+	if len(state.Players) != 2 || !state.CanStart {
+		t.Fatalf("lobby should be startable again: %+v", state)
+	}
+	for _, player := range state.Players {
+		if player.Score != 0 || !player.Ready || player.Name == "" {
+			t.Fatalf("player was not reset correctly: %+v", player)
+		}
+	}
+
+	if err := lobby.playAgain(host.Token); stridStatusOf(err) != http.StatusConflict {
+		t.Fatalf("second play again: got %v", err)
+	}
 }
 
 func TestStridLobbyIsCappedAtFivePlayers(t *testing.T) {
@@ -432,6 +461,23 @@ func TestStridAPI(t *testing.T) {
 	waitForStridState(t, lobby, "the API match to finish", func(state stridState) bool {
 		return state.Status == stridStatusFinished
 	})
+
+	stridPostStatus(t, server.URL+"/api/strid/again", map[string]string{
+		"code":  create.Code,
+		"token": create.Token,
+	}, http.StatusOK)
+
+	resetState := waitForStridState(t, lobby, "the lobby to reset", func(state stridState) bool {
+		return state.Status == stridStatusWaiting
+	})
+	if resetState.Round != nil || !resetState.CanStart {
+		t.Fatalf("unexpected reset state: %+v", resetState)
+	}
+	for _, player := range resetState.Players {
+		if player.Score != 0 {
+			t.Fatalf("score was not reset: %+v", player)
+		}
+	}
 }
 
 type stridTestCreateResponse struct {

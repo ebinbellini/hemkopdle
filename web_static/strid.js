@@ -115,6 +115,7 @@ function cache_strid_elements() {
         winnerTitle: "strid-winner-title",
         winnerNames: "strid-winner-names",
         finalStandings: "strid-final-standings",
+        again: "strid-again",
         recapCard: "strid-recap-card",
         recap: "strid-recap",
         recapHint: "strid-recap-hint",
@@ -138,6 +139,9 @@ function bind_strid_events() {
     sEls.joinForm.addEventListener("submit", join_lobby);
     sEls.nameForm.addEventListener("submit", submit_name);
     sEls.start.addEventListener("click", start_match);
+    if (sEls.again) {
+        sEls.again.addEventListener("click", play_again);
+    }
     sEls.guessForm.addEventListener("submit", submit_guess);
 
     sEls.codeInput.addEventListener("input", () => {
@@ -835,7 +839,37 @@ function render_finished() {
         sEls.finalStandings.appendChild(item);
     });
 
+    if (sEls.again) {
+        sEls.again.disabled = strid.busy;
+    }
+
     render_recap(state);
+}
+
+async function play_again() {
+    if (strid.busy) {
+        return;
+    }
+
+    clear_error();
+    strid.busy = true;
+    if (sEls.again) {
+        sEls.again.disabled = true;
+    }
+
+    try {
+        await api_post("/api/strid/again", {
+            code: strid.code,
+            token: strid.token,
+        });
+        await refresh_state();
+    } catch (error) {
+        show_error(error.message);
+        await refresh_state();
+    } finally {
+        strid.busy = false;
+        render_current_view();
+    }
 }
 
 // The recap shows every round's product and every customer's guess in a table.

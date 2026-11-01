@@ -103,6 +103,7 @@ func newMux() *http.ServeMux {
 	mux.HandleFunc("/api/strid/join", StridJoinHandler)
 	mux.HandleFunc("/api/strid/ready", StridReadyHandler)
 	mux.HandleFunc("/api/strid/start", StridStartHandler)
+	mux.HandleFunc("/api/strid/again", StridAgainHandler)
 	mux.HandleFunc("/api/strid/guess", StridGuessHandler)
 	mux.HandleFunc("/api/strid/state", StridStateHandler)
 	mux.HandleFunc("/api/strid/events", StridEventsHandler)

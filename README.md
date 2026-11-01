@@ -22,7 +22,7 @@ Then open <http://localhost:2759>.
 
 - Dagens vara: one product per day.
 - Jag har tur: a random product with six guesses.
-- Kund mot kund: compete in a lobby of 2–5 players
+- Kund mot kund: compete in a lobby of 2–5 players.
 
 ## Scheduling and politeness
 

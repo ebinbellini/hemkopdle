@@ -164,6 +164,32 @@ func StridStartHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, stridOKResponse{OK: true})
 }
 
+// StridAgainHandler returns a finished lobby to its waiting room so the same
+// group can play another match.
+func StridAgainHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSONError(w, http.StatusMethodNotAllowed, "endast POST stöds")
+		return
+	}
+
+	var request stridTokenRequest
+	if !decodeStridJSON(w, r, &request) {
+		return
+	}
+
+	lobby, err := stridLobbies.lookupCode(request.Code)
+	if err != nil {
+		writeStridError(w, err)
+		return
+	}
+	if err := lobby.playAgain(request.Token); err != nil {
+		writeStridError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, stridOKResponse{OK: true})
+}
+
 // StridGuessHandler locks in one price guess for the current round.
 func StridGuessHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
