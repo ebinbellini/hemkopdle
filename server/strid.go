@@ -273,7 +273,7 @@ func (s *stridStore) lookup(code string) *stridLobby {
 func (s *stridStore) lookupCode(raw string) (*stridLobby, error) {
 	code, ok := normalizeStridCode(raw)
 	if !ok {
-		return nil, newStridError(http.StatusBadRequest, "ogiltig lobbkod")
+		return nil, newStridError(http.StatusBadRequest, "ogiltig lobbykod")
 	}
 
 	lobby := s.lookup(code)
